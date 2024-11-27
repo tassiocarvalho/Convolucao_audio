@@ -1,36 +1,29 @@
 import numpy as np
-from scipy.io.wavfile import read, write
+import scipy.io.wavfile as wav
+from scipy.signal import convolve
 
-# Função para realizar convolução manualmente
-def convolucao_manual(audio, resposta_impulso):
-    # Tamanho dos sinais
-    len_audio = len(audio)
-    len_impulso = len(resposta_impulso)
-    
-    # Criar um vetor de saída para o áudio resultante
-    output_length = len_audio + len_impulso - 1
-    resultado = np.zeros(output_length)
-    
-    # Realizar a convolução manual
-    for i in range(len_audio):
-        resultado[i:i+len_impulso] += audio[i] * resposta_impulso
-        
-    return resultado
+# Função para aplicar o filtro passa baixa
+def filtro_passa_baixa(audio, fs, cutoff_freq):
+    # Criar um filtro passa baixa (filtro de média móvel)
+    N = int(fs / cutoff_freq)
+    filtro = np.ones(N) / N  # Média móvel
+    audio_filtrado = convolve(audio, filtro, mode='same')  # Convolução
+    return audio_filtrado
 
-# Carregar o áudio original e a resposta ao impulso
-fs_audio, audio = read('audio_original.wav')  # Substitua com o caminho do seu arquivo de áudio
-fs_impulso, impulso_resposta = read('impulse_response.wav')  # Substitua com o caminho do arquivo IR
+# Carregar o arquivo de áudio
+fs, audio = wav.read('testando_audio.wav')
 
-# Verificar se as taxas de amostragem são compatíveis
-if fs_audio != fs_impulso:
-    raise ValueError("As taxas de amostragem devem ser iguais.")
+# Certificar-se de que o áudio esteja em formato mono (um único canal)
+if len(audio.shape) > 1:
+    audio = audio[:, 0]  # Selecionar o primeiro canal se for estéreo
 
-# Convoluir os dois sinais
-audio_reverberado = convolucao_manual(audio, impulso_resposta)
+# Definir a frequência de corte para o filtro passa baixa (por exemplo, 300 Hz)
+cutoff_freq = 300  # Frequência de corte em Hz
 
-# Garantir que os valores do áudio não ultrapassem o intervalo de inteiros de 16 bits
-audio_reverberado = np.clip(audio_reverberado, -32768, 32767).astype(np.int16)
+# Aplicar o filtro passa baixa no áudio
+audio_filtrado = filtro_passa_baixa(audio, fs, cutoff_freq)
 
-# Salvar o áudio resultante
-write('audio_com_eco.wav', fs_audio, audio_reverberado)
-print("Áudio com reverberação salvo como 'audio_com_eco.wav'")
+# Salvar o áudio filtrado em um novo arquivo
+wav.write('audio_filtrado.wav', fs, np.int16(audio_filtrado))
+
+print("Filtragem concluída e áudio salvo como 'audio_filtrado.wav'")
